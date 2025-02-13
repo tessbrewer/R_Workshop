@@ -8,22 +8,10 @@ For analyzing growth data in R, you need two things.
 1. To create a "mapping file". This means a file that tells R what was in what well
 2. To read in the raw data you get off the plate reader
 ```{r, load packages, echo=FALSE, message=FALSE, warning=FALSE}
-library(readxl) #read_excel
-library(reshape2) #melt
-library(RColorBrewer) #brewer color tools
-library(growthcurver) #growth curver
+library(ggplot2)
 library(ggforce) #geom_circle for plate map
-library(ggsignif) #significance
-library(knitr) #making tables look nice in Rmarkdown
-library(kableExtra) #making tables look nice in Rmarkdown
-library(stringr) #str_split_fixed
 library(scales) #reverse_trans
-
-pretty_table <- function(df){
-  kable(head(df),
-      format = "html", table.attr = "style='width:50%;'") %>% 
-      kableExtra::kable_styling()
-}
+library(stringr) #str_split_fixed
 ```
 ### Mapping file and plate map
 Let's see a mapping file first. You can make this in excel or in R. Erica's plate is really complicated and is a combination of 
@@ -44,21 +32,22 @@ Her plate map looks like this:
 
 #for the labels
 label = c(rep(c('Alt_0.05', 'Lys_0.05', 'Alt_0.125', 'Lys_0.125', 'no_aa'), each = 3))
-one_media = c(rep(label, 2), 'Alt_blank', 'Lys_blank', 'no_aa', rep('blank', each = 3))
+one_media = c(rep(label, times = 2), 'Alt_blank', 'Lys_blank', 'no_aa', rep('blank', each = 3))
 
 
 #the others are just slightly different versions of those commands
-mapping <- data.frame(wells = paste(rep(LETTERS[1:6], each = 12), rep(seq(1:12), 6), sep = ''),
-                      conditions = rep(one_media, 2),
+mapping <- data.frame(wells = paste(rep(LETTERS[1:6], each = 12), rep(seq(1:12), times = 6), sep = ''),
+                      conditions = rep(one_media, times = 2),
                       media = c(rep(c('glucose', 'glycerol'), each = 36)),
-                      strain = rep(c(rep(1, each = 15), rep(10, each = 15), rep('blank', each = 6)), 2)
+                      strain = rep(c(rep(1, each = 15), rep(10, each = 15), rep('blank', each = 6)), times = 2)
                       )
-mapping$condition_only <- str_split_fixed(mapping$conditions, '_', 2)[,1] #this splits these characters based on '_' two times
-mapping$concentration <- str_split_fixed(mapping$conditions, '_', 2)[,2] 
+mapping$condition_only <- str_split_fixed(mapping$conditions, pattern = '_', n = 2)[,1] 
+#this splits these characters based on '_' two times
+mapping$concentration <- str_split_fixed(mapping$conditions, pattern = '_', n = 2)[,2] 
 
 #plate format
 mapping$row <- rep(seq(1:6), each = 12)
-mapping$col <- rep(seq(1:12), 6)
+mapping$col <- rep(seq(1:12), times = 6)
 
 ggplot(data = mapping) + 
   geom_circle(aes(x0 = col, y0 = row, r = 0.45, fill = media)) +
@@ -79,37 +68,65 @@ ggplot(data = mapping) +
 
 ```
 
-The mapping file needs to contain all of this information. Here's what the one I made looks like:
+The mapping file needs to contain all of this information. I made mine in R because there are repeating patterns we can take advantage of to reduce the amount of manual typing we have to do. I'm lazy and I like R to do my work for me.  
 
-```{r, showing mapping, echo=FALSE, message=FALSE}
-pretty_table(head(mapping[,1:6]))
+Here's how I made mine:
+
+```{r, showing mapping, message=FALSE}
+library(stringr) #str_split_fixed
+
+#for the labels
+label = c(rep(c('Alt_0.05', 'Lys_0.05', 'Alt_0.125', 'Lys_0.125', 'no_aa'), each = 3))
+one_media = c(rep(label, times = 2), 'Alt_blank', 'Lys_blank', 'no_aa', rep('blank', each = 3))
+
+#put it all together into a dataframe
+mapping <- data.frame(wells = paste(rep(LETTERS[1:6], each = 12), rep(seq(1:12), times = 6), sep = ''),
+                      conditions = rep(one_media, times = 2),
+                      media = c(rep(c('glucose', 'glycerol'), each = 36)),
+                      strain = rep(c(rep(1, each = 15), rep(10, each = 15), rep('blank', each = 6)), times = 2))
+
+#this splits these characters based on '_' two times
+mapping$condition_only <- str_split_fixed(mapping$conditions, pattern = '_', n = 2)[,1] 
+mapping$concentration <- str_split_fixed(mapping$conditions, pattern = '_', n = 2)[,2] 
+
+head(mapping[,1:6])
 ```
+
+If this looks overwhelming to you, no problem. You can just make your mapping file in excel and load it into R with `read.delim`, `read.csv`, or `read_excel` depending on the file format.
 
 Now we can move on to loading the plate reader data. 
 
 ### Loading in clariostar data
 
-Erica has clariostar data. We have the raw excel file that clariostar spits out. There's a library in R (readxl) that can read excel files directly, but we have to tell it the range of excel columns and rows that we want. We only want the actual measurements, not the 5000 lines of metadata that clariostar spits out. First let's open the excel file and look at what we're dealing with. 
+Erica has clariostar data. We have the raw excel file that clariostar spits out. There's a library in R (`readxl`) that can read excel files directly, but we have to tell it the range of excel columns and rows that we want. We only want the actual measurements, not the 5000 lines of metadata that clariostar spits out.  
 
+First let's open the excel file and look at what we're dealing with. 
 
-In this case we want the range B11:CT112. Let's load it and take a look!
+What is the range of cells we need? 
 
 
 ```{r, reading in data, message=FALSE}
-od <- read_excel('../data/erica_4.10.24_clariostar_data.xlsx', range = 'B11:CT112')
-pretty_table(head(od[,1:4]))
+library(readxl) #read_excel function
+
+od <- read_excel('~/Documents/munich/R_Workshop/Growth_curves/data/erica_4.10.24_clariostar_data.xlsx', 
+                 range = 'B11:CT112')
+head(od[,1:4])
 ```
 
 What we loaded in is tragically ugly and quite messy. We need to do further processing before we can use it. 
 
-First we can remove the first row in the dataframe. This is just sample names, which no one (?) uses anyway.
+First we can remove the first row. This just contains the sample names, which no one (?) uses anyway.
 
 ```{r, reading in data2, message=FALSE}
 od <- od[-1,]
-pretty_table(head(od[,1:4]))
+head(od[,1:4])
 ```
 
-Looking better! Now we need to put the time into units R can use. 0h 30 min is not useful for plotting. Here we'll do this using seq. Seq generates numbers from whatever to whatever by whatever increment. We want it to go from 0 to the last measurement, increasing by 30 each time. 
+Looking better! Now we need to change the time into units R can use. 0h 30 min is not useful for plotting. Here we'll do this using `seq`.  
+
+`seq` generates numbers from whatever to whatever by whatever increment. We want it to go from 0 to the last measurement, increasing by 30.  
+
+
 We can find what the final measurement should be by taking the number of rows `nrow(od)` of the data we loaded in, subtract that by one and multiply this number by the time interval. In R speak that equals `(nrow(od) - 1) * 30`
 
 ```{r, reading in data3, message=FALSE}
@@ -120,46 +137,94 @@ od$time <- seq(from = 0, to = (nrow(od) - 1) * 30, by = 30)
 od <- od[,-1] #remove the time column clariostar gave us
 ```
 
-Now that we have the time fixed we just need to do a little housekeeping. First off change our data into long format. I like to do this with the reshape2 library, and specifically the `melt` function. Then we'll fix a couple other loose ends.
+Now that we have the time fixed we just need to do a little housekeeping. We need to:  
+
+  1) Change our data into long format. I like to do this with the reshape2 library, and specifically the `melt` function. 
+  
 ```{r, reading in data4, message=FALSE}
+library(reshape2) #melt
 
 #reshape and rename columns
-od <- melt(od, id.vars = 'time')
-colnames(od)[2:3] <- c('wells', 'value')
+od <- melt(od, id.vars = 'time') 
+head(od)
+colnames(od)[2:3] <- c('wells', 'od_value')
+```
 
-#fix well discrepancy
-od$wells <- gsub('([[:alpha:]])0', '\\1', od$wells) 
+  2) Fix well discrepancy between the mapping file and clariostar data.
+  
+```{r, rename wells}
+od$wells <- gsub(pattern = '([[:alpha:]])0', replacement = '\\1', x = od$wells) 
 #replace any well that has a letter followed by a number by just the letter
 #just turns A01 -> A1 so we can use it as a key with the mapping file
+```
 
-#convert od values to numeric, they were read in as characters
-od$value <- as.numeric(od$value)
+  3) Convert od values into numeric. 
+  
+```{r, numeric}
+typeof(od$od_value)
+od$od_value <- as.numeric(od$od_value)
+```
 
-#add the mapping info to the od measurements
+  4) Move mapping file information to the `od` dataframe
+  
+```{r, moving}
 od$cond <- mapping$conditions[match(od$wells, mapping$wells)]
 od$media <- mapping$media[match(od$wells, mapping$wells)]
 od$strain <- mapping$strain[match(od$wells, mapping$wells)]
-
-#some wells were empty (rows G and H), but the plate-reader took measurements for them. 
-#so they have NA for all the columns we transferred from the mapping file
-pretty_table(head(subset(od, grepl('G', wells))))
-#this gets rid of them
-od <- na.omit(od)
-
-pretty_table(head(od))
 ```
-Yeaaaah looks good! Now we can actually start to analyze our data.
+
+   5) Remove empty wells. Some wells were empty (rows G and H), but the plate-reader took measurements for them anyway. 
+   
+```{r, remove empties}
+head(subset(od, select =  grepl(pattern = 'G', x = wells)))
+#they have NA for all the columns we transferred from the mapping file
+od <- na.omit(od) #removes rows containing NA
+head(od)
+```
+
+Now we can actually start to analyze our data.  
+
+You might be annoyed that we had to do all these steps just to get our data into a useable format. I am too! When you do things in R that are repetitive and should be done the same way multiple times (ie next time you have plate reader data), the solution is to write a function!  
+
+Here's an example of how we would turn all those steps into a function:
+
+```{r, function, message=FALSE}
+read_plate <- function(measurements, mapping, excel_range){
+  df <- read_excel(measurements, range = excel_range)
+  df <- df[-1,]
+  df$time <- seq(from = 0, to = (nrow(df) - 1) * 30, by = 30)
+  df <- df[,-1]
+  df <- melt(df, id.vars = 'time')
+  colnames(df)[2:3] <- c('wells', 'od_value')
+  df$wells <- gsub('([[:alpha:]])0', '\\1', df$wells) 
+  df$od_value <- as.numeric(df$od_value)
+  df$cond <- mapping$conditions[match(df$wells, mapping$wells)]
+  df$media <- mapping$media[match(df$wells, mapping$wells)]
+  df$strain <- mapping$strain[match(df$wells, mapping$wells)]
+  df <- na.omit(df)
+  return(df)
+}
+
+plate_file = '~/Documents/munich/R_Workshop/Growth_curves/data/erica_4.10.24_clariostar_data.xlsx'
+od_function <- read_plate(measurements = plate_file, 
+                          mapping = mapping, 
+                          excel_range = 'B11:CT112')
+head(od_function)
+```
+
+Next time I have clariostar data, I can just use this.  
+
+However, this function has assumptions built in that can easily cause problems. Do you see any?
 
 ### Analyzing blanks
 Erica likes complex things so there are eight different types of blanks. 
 
-```{r, look @ blanks}
-blanks <- subset(od, strain == 'blank')
-pretty_table(table(blanks$cond, blanks$media))
-```
 Let's see what everything looks like first by faceting across the media type and strains. 
 ```{r, analyze blanks, message=FALSE, strip.white=TRUE, fig.height=6, fig.width=10, fig.align='center'}
-ggplot(od, aes(x = time, y = value)) +
+library(RColorBrewer) #brewer color tools
+library(ggplot2)
+
+ggplot(od, aes(x = time, y = od_value)) +
   facet_grid(strain~media) +
   geom_smooth(aes(group = wells, color = cond), linewidth = 1.1, se = F) +
   xlab("Time (minutes)") +
@@ -173,14 +238,17 @@ ggplot(od, aes(x = time, y = value)) +
 We can see the blanks aren't really too different from each other, and none are contaminated. Good job Erica! However they do decrease over time due to evaporation. For these exercises I'll just average them together across each time point, then subtract these values from the experimental wells. Then we can get rid of the blanks. 
 
 ```{R, subtract blanks}
-blank_vals <- aggregate(value ~ time, data = blanks, FUN = mean)
-od$blank_avg <- blank_vals$value[match(od$time, blank_vals$time)]
+blanks <- subset(od, strain == 'blank')
 
-od$corrected_od <- od$value - od$blank_avg
-od <- subset(od, strain != 'blank')
-rm(blanks, blank_vals)
+blank_vals <- aggregate(od_value ~ time, data = blanks, FUN = mean) #get average of blanks over time
+od$blank_avg <- blank_vals$od_value[match(od$time, blank_vals$time)] #transfer to od
 
-pretty_table(head(od))
+od$corrected_od <- od$od_value - od$blank_avg #subtract blanks
+
+od <- subset(od, strain != 'blank') #remove blanks
+rm(blanks, blank_vals) #clean up
+
+head(od)
 ```
 
 ### Analyzing and plotting data
@@ -202,7 +270,7 @@ ggplot(od, aes(x = time, y = corrected_od)) +
 
 ```
 
-Alright, so we can see the no amino acid wells basically didn't grow. Checks out. Let's remove them from further analysis. 
+Alright, so we can see the wells with no amino acids added basically didn't grow. Checks out. Let's remove them from further analysis. 
 
 ```{R, comparing conditions, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.align='center'}
 od <- subset(od, cond != 'no_aa')
@@ -217,7 +285,7 @@ ggplot(od, aes(x = time, y = corrected_od)) +
   theme_classic(base_size = 18, base_family = 'Helvetica')
 ```
 
-We can see that the replicates look very similar. Let's combine then and make error bars. 
+We can see that the replicates look very similar. Let's combine them and make error bars. 
 ```{R, error bars, message=FALSE, warning=FALSE, fig.height=6, fig.width=12, fig.align='center'}
 #get mean value for line
 mean_val <- aggregate(corrected_od ~ time * paste(cond, media, strain, sep = '_'), data =  od, FUN = mean)
@@ -239,8 +307,8 @@ ggplot(mean_val, aes(x = time, y = corrected_od)) +
   facet_grid(cond~media, scales = 'free') +
   geom_errorbar(aes(ymin = corrected_od - sd, 
                     ymax = corrected_od + sd, color = paste(strain, conc)),
-                width = 0.2, position = position_dodge(width = 0.9), alpha = 0.5) +
-  geom_line(aes(group = name, color = paste(strain, conc)), linewidth = 1.1, se = F) +
+                    width = 0.2, position = position_dodge(width = 0.9), alpha = 0.5) +
+  geom_line(aes(group = name, color = paste(strain, conc)), linewidth = 1.1) +
   xlab("Time (seconds)") +
   ylab("OD 600") +
   scale_color_manual(values = colorz, name = 'Strain / concentration', 
@@ -251,38 +319,41 @@ ggplot(mean_val, aes(x = time, y = corrected_od)) +
 ```
 
 ### Calculating growth rates using growthcurver
-R has a nice package (growthcurver) for calculating growth rates from plate reader data using the function `SummarizeGrowthByPlate`. If you plan to use it, I recommend checking out their tutorial, found [here.](https://cran.r-project.org/web/packages/growthcurver/vignettes/Growthcurver-vignette.html) 
+R has a nice package (`growthcurver`) for calculating growth rates from plate reader data using the function `SummarizeGrowthByPlate`. If you plan to use it, I recommend checking out their tutorial, found [here.](https://cran.r-project.org/web/packages/growthcurver/vignettes/Growthcurver-vignette.html) 
 
-To use growthcurver we need our data to be back in wide format (each well as a column). We can do this using `dcast`
+To use growthcurver we need our data to be back in wide format (each well as a column). We can do this using `dcast` from the reshape2 library.
 
 ```{R, growth curver, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.align='center'}
+library(growthcurver) #SummarizeGrowthByPlate
+
 #Growthcurver needs time in one column, then one column for each well (wide format)
-growth_data <- dcast(od, time ~ wells, value.var = 'corrected_od')
+growth_data <- dcast(data = od, time ~ wells, value.var = 'corrected_od')
 growth_data$time <- growth_data$time / 60 #expects hours, not minutes according to help file
-pretty_table(head(growth_data[, 1:5]))
+head(growth_data[, 1:5])
 ```
 
 Now we're ready to actually run the function to calculate growth rate for each of our wells. 
 
 ```{R, running growth curver}
 growth_curve <- SummarizeGrowthByPlate(growth_data)
-pretty_table(head(growth_curve))
+head(growth_curve)
 ```
 
 Growthcurver spits out a lot of information, but for our purposes we're interested in the t_gen (doubling time). It's very important to look at the note column as well - if the function couldn't calculate doubling time or had any difficulties you'll find warnings there.
+
+Let's plot our doubling times.
 
 ```{R, plotting growth rate, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.align='center'}
 mapping$t_gen <- growth_curve$t_gen[match(mapping$well, growth_curve$sample)]
 
 growth_plot <- subset(mapping, strain != 'blank' & conditions != 'no_aa')
 
-#plot generation time versus metrics
 ggplot(growth_plot, aes(x = concentration, y = t_gen, fill = strain)) +
   facet_grid(media ~ condition_only, scales = 'free_y') +
   geom_boxplot(alpha = 0.5, outlier.shape = NA) +
   geom_point(size = 3, pch = 21, position = position_jitterdodge()) +
   ylab('Generation time (hours)') +
-  xlab(expression(paste('Concentration (mM)'))) +
+  xlab('Concentration (mM)') +
   theme_classic(base_size = 18, base_family = 'Helvetica') +
   scale_fill_manual(values = c("#BBECCD", "#ad85cf"))
 ```
@@ -293,8 +364,10 @@ Alright, looks like strain 10 grows much better on the lysine alternative than s
 Using the R package ggsignif we can calculate significance with a t-test directly on our plots. For convenience, I'll split up the glucose and glycerol results.
 
 ```{R, significance, message=FALSE, warning=FALSE, fig.height=4, fig.width=12, fig.align='center'}
+library(ggsignif) #significance
+
 growth_plot$label <- paste(growth_plot$condition_only, ' ', growth_plot$concentration, ' mM', sep = '')
-#making a nice label with mu using unicode characters
+#making a nice looking label
 
 ggplot(subset(growth_plot, media == 'glucose'), aes(x = as.character(strain), y = t_gen, fill = strain)) +
   facet_wrap(~label, nrow = 1) +
@@ -315,12 +388,12 @@ ggplot(subset(growth_plot, media == 'glucose'), aes(x = as.character(strain), y 
 ggplot(subset(growth_plot, media == 'glycerol'), aes(x = as.character(strain), y = t_gen, fill = strain)) +
   facet_grid(~label) +
   geom_boxplot(alpha = 0.5, outlier.shape = NA) +
-  geom_signif(comparisons = list(c('1', '10')), test = 't.test', y_position = 3.75, 
+  geom_signif(comparisons = list(c('1', '10')), test = 't.test', y_position = 4.75, 
               tip_length = 0, family = 'Helvetica') +
   geom_point(size = 3, pch = 21, position = position_jitterdodge()) +
   ggtitle('Growth comparision on glycerol') +
   ylab('Generation time (hours)') +
-  ylim(c(0, 4.25)) +
+  ylim(c(0, 5.25)) +
   theme_classic(base_size = 18, base_family = 'Helvetica') +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
@@ -329,3 +402,22 @@ ggplot(subset(growth_plot, media == 'glycerol'), aes(x = as.character(strain), y
 ```
 
 Okay, so we can see that differences in growth rates between the strains are only significant (with the lysine alternative) when the media contains glycerol as the carbon source. Is that interesting scientifically? I don't know, ask Erica!
+
+`ggsignif` is a flexible package. Siobhan hated that I put the p-values directly on the figure. To turn her frown upside down we can just use significance stars instead. 
+
+```{r, stars, warning=FALSE, fig.height=4, fig.width=12, fig.align='center'}
+ggplot(subset(growth_plot, media == 'glycerol'), aes(x = as.character(strain), y = t_gen, fill = strain)) +
+  facet_grid(~label) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
+  geom_signif(comparisons = list(c('1', '10')), test = 't.test', y_position = 4.75, 
+              tip_length = 0, family = 'Helvetica', map_signif_level=TRUE, textsize = 5) +
+  geom_point(size = 3, pch = 21, position = position_jitterdodge()) +
+  ggtitle('Growth comparision on glycerol') +
+  ylab('Generation time (hours)') +
+  ylim(c(0, 5.25)) +
+  theme_classic(base_size = 18, base_family = 'Helvetica') +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_fill_manual(values = c("#BBECCD", "#ad85cf"))
+```
