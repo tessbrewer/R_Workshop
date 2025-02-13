@@ -8,4 +8,4 @@ The workshop consists of four sections in the following order:
   * Growth curves
   * Proteomics visualization
 
-You don't need to know any R to participate. See you soon!
+**You don't need to know any R to participate.** See you soon!
