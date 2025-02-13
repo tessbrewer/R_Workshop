@@ -1,0 +1,702 @@
+---
+title: "Basic graphing in ggplot2"
+author: "Siobhan Cusack"
+date: "2025-02-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# 1. What is ggplot2?
+
+ggplot2 uses what's called a "grammar of graphics". The philosophy is that a few basic components structured in a consistent way allow you to create endlessly customizable graphs.
+In ggplot2, each graph is built from three components:
+
+- your dataset
+- a coordinate system (the graph background and axes)
+- geoms (the visual representations of your data)
+     
+You can learn anything and everything you wish about the philosophy behind ggplot [here](https://ggplot2-book.org/introduction).
+
+
+# 2. How does ggplot2 expect you to have your data formatted?
+ggplot requires what the creators refer to as "tidy data". Tidy data have a single observation (data point) per row and all related data about the sample types or experimental conditions are stored together with the observations in every single row. To show you what this means in practice, here is an example bacterial growth dataset before tidying:
+
+Replicate|WT 12 h|WT 24 h|Mutant 12 h|Mutant 24 h
+---|---|----|----|----
+1|0.3088|0.5550|0.1448|0.1533
+2|0.3260|0.6575|0.1463|0.1552
+
+
+
+After tidying to one observation per row, it would look like this:
+
+Genotype | Replicate | Timepoint | OD
+--- |----|-----|---
+WT | 1 | 12| 0.3088
+WT | 2 | 12| 0.3260
+WT | 1 | 24| 0.5550
+WT | 2 | 24| 0.6575
+Mutant | 1 | 12| 0.1448
+Mutant | 2 | 12|0.1463
+Mutant | 1 | 24| 0.1533
+Mutant | 2 | 24| 0.1552
+
+
+This is not how most people are used to storing their data and it may seem like a hassle at first! However, it allows you to do some very neat things when you display your data. Before we get to the actual graphing, we'll briefly discuss how to tidy your data.
+
+# 3. Tidying your data
+
+The most common hurdle to ggplotting data is that the dataframe is too wide, meaning that there is more than one observation per row. Fortunately, the creator of ggplot2 has planned for this issue and developed a suite of tools to address it. 
+
+First, let's look at an example expression dataset that I downloaded from the [Gene Expression Omnibus website](https://www.ncbi.nlm.nih.gov/geo/) ([#GSE211026](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE211026)). 
+
+```{r}
+setwd("C:/Users/G02.047/Documents/GitHub/R_Workshop/Basic_graphing")
+untidy = read.delim("data/GSE211026_TPMs_allSamples.txt", sep = "\t", header = 1)
+untidy[1:10,]
+```
+
+The first two columns here have the gene ID and the chromosome number, respectively; the rest have expression values for each gene, with the column name representing the timepoint and replicate number. While the data are still in this wider format, I would go through and make a few changes to the first two columns for clarity. First, because every gene starts with the name "gene-" here, this does not add any information and would be better removed. 
+
+```{r}
+untidy$Geneid = gsub("gene-", "", untidy$Geneid)
+untidy[1:10,]
+```
+
+I know from looking at the project description on the GEO website for this dataset that it contains both *E. coli* and T4 genes; the chromosome field should therefore indicate whether each gene belongs to *E. coli* or T4. First, identify both chromosome names that are in the dataframe.
+
+```{r}
+unique(untidy$Chr)
+```
+U00096.3 corresponds to *E. coli* and NC_000866.4 corresponds to T4. Because those organism names would be more informative than the chromosome names, let's replace them.
+
+```{r}
+#loop through every row in the dataframe
+for (row in 1:nrow(untidy)) {
+  #get the chromosome name
+  chr = untidy[row, "Chr"]
+  #if the chromosome name is U00096.3, replace it with "E.coli"
+  if (chr == "U00096.3"){
+    untidy[row, "Chr"] = "E.coli"
+  }
+  #if the chromosome name is NC_000866.4, replace it with "T4"
+  if (chr == "NC_000866.4") {
+    untidy[row, "Chr"] = "T4"
+  }
+}
+
+#show the names in this column after substituting the organism names 
+unique(untidy$Chr)
+```
+
+We can see that the substitution worked as expected. Now that these things are taken care of (as opposed to being propagated and multiplied in the longer version of the dataframe), we will use the `pivot_longer` function of the `tidyr` package to convert the timepoint and replicate headers to descriptive values and all of the expression values to a single observation per row.
+
+```{r}
+library(tidyr)
+tidy = pivot_longer(data = untidy, cols = 3:17, names_to = c("Timepoint", "Replicate"), names_sep = "_", values_to = "Expression")
+tidy[1:10,]
+```
+
+Because we'll want to graph the gene expression data across timepoints, we want to make sure the timepoint values are considered numbers (continuous data) rather than characters (categorical data). We will therefore remove the "T" from every timepoint value and explicitly tell R to treat the resulting values as numbers rather than characters. This will take a minute to complete because the dataframe is very large.
+
+```{r}
+tidy$Timepoint = gsub("T", "", tidy$Timepoint)
+tidy$Timepoint = as.numeric(tidy$Timepoint)
+tidy[1:10,]
+```
+This is now a dataframe we can make some graphs with. But for clarity, we'll rename the "Geneid" and "Chr" columns.
+```{r}
+colnames(tidy)[1:2] = c("Gene", "Organism")
+tidy[1:10,]
+```
+
+To start off easy with the actual graphing , we'll select just a few genes and consider only replicate 1.
+```{r}
+#make a list of genes to keep for now
+keep_genes = c("b0001", "b4401", "b4200", "T4p001", "T4p034", "T4p003")
+
+#subset the dataframe to get only these genes 
+select_genes = tidy[tidy$Gene %in% keep_genes,]
+
+#keep only replicate 1
+df = select_genes[select_genes$Replicate == "R1", ]
+
+#drop the replicate column because it's not relevant at this time
+df = subset(df, select = -c(Replicate))
+df[1:10,]
+```
+
+
+# 4. Let's make some graphs!
+
+Our simplified dataset now has four fields: gene name, organism, timepoint, and expression value. 
+
+## Line and dot plots (two continuous variables)
+
+Suppose you want to make a basic graph showing the expression values of all six genes over time. After loading ggplot (`library(ggplot2)`), you will need to specify your dataset (df), including which variables go on the x-axis (Timepoint) and the y-axis (Expression); the latter are collectively known as the aesthetics of the graph. You also need to specify the geom type(s), meaning the type of visual representation you want for these data. We will start with points to represent each datapoint, generating a dot plot. Run the following code:
+
+```{r}
+library(ggplot2)
+ggplot(data = df, aes(x = Timepoint, y = Expression)) +
+geom_point()
+```
+
+This is fine, but there are a few things we can do to make it look cleaner and easier to read, namely clear the background and make the font size bigger. We will do this with the addition of a theme to our graph (`theme_classic()`) and specification of a larger font size within that theme (`base_size = 22`):
+
+```{r}
+ggplot(data = df, aes(x = Timepoint, y = Expression)) +
+geom_point() +
+theme_classic(base_size = 22)
+```
+
+One last tweak: we can manually adjust the axis labels to be more informative by adding the `labs` option:
+```{r}
+ggplot(data = df, aes(x = Timepoint, y = Expression)) +
+geom_point() +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)")
+```
+
+Now suppose you'd like to track the expression levels of individual genes over time. You could do this by adding a line geom to your dot plot to create a line-and-dot plot.
+
+Let's try simply adding a line geom (geom_line) to the dotplot code first.
+```{r}
+ggplot(data = df, aes(x = Timepoint, y = Expression)) +
+geom_point() +
+geom_line() +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)")
+```
+
+Why did this fail?
+
+We didn't tell ggplot how to group the data. We have to specify that the data should be grouped by gene. This is accomplished by adding the specification "group" to the aesthetics portion of the code.
+
+```{r}
+ggplot(data = df, aes(x = Timepoint, y = Expression, group = Gene)) +
+geom_point() +
+geom_line() +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)")
+```
+
+Maybe you'd like to know the identity of each gene depicted here. You color-code each line and dot by gene name by adding the specification `color` to the aesthetics.
+
+```{r}
+ggplot(data = df, aes(x = Timepoint, y = Expression, group = Gene, color = Gene)) +
+geom_point() +
+geom_line() +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)")
+```
+
+In this case it's clear to us from just the gene names which genes belong to which organism. However, if you wished to know at a glance which genes belong to which organism, you could use another aesthetic marker, such as point shape, to show this.
+
+```{r}
+ggplot(data = df, aes(x = Timepoint, y = Expression, group = Gene, color = Gene, shape = Organism)) +
+geom_point() +
+geom_line() +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)")
+```
+
+Note: see [this page](https://www.sthda.com/english/wiki/ggplot2-point-shapes) for lots of information about the shapes that are available in ggplot and how you can specify which ones you want to use if you don't want to use the defaults.
+
+We could make the points a little larger to make it easier to distinguish between the shapes through the `size` specification of `geom_point`.
+
+```{r}
+ggplot(data = df, aes(x = Timepoint, y = Expression, group = Gene, color = Gene, shape = Organism)) +
+geom_point(size = 2) +
+geom_line() +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)")
+```
+
+Instead of changing the shape to separate the *E. coli* from the phage genes, maybe you'd like to visualize the data separately but still simultaneously. ggplot enables this with the use of __facets__.
+```{r}
+ggplot(data = df, aes(x = Timepoint, y = Expression, group = Gene, color = Gene)) +
+geom_point(size = 2) +
+geom_line() +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)") +
+facet_wrap(~Organism)
+```
+
+To show you the real customizability of ggplot and the power of tidy data, let's try graphing the same dataset but with all three replicates included. If you have a look at the table `select_genes`, you'll see that we now have the additional variable "Replicate":
+
+```{r}
+select_genes[1:10,]
+```
+
+ First, we'll make a line-and-dot plot as above, grouping by gene.
+
+```{r}
+ggplot(data = select_genes, aes(x = Timepoint, y = Expression, group = Gene, color = Gene)) +
+geom_point() +
+geom_line() +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)")
+```
+
+This doesn't work because we are no longer just looking to track a single instance of each gene over time; now we want to track each gene over time by replicate number. The combination of these variables must be included in the grouping as follows:
+```{r}
+ggplot(data = select_genes, aes(x = Timepoint, y = Expression, group = interaction(Gene, Replicate), color = Gene)) +
+geom_point() +
+geom_line() +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)")
+```
+
+As above, we might like to know here which organism each gene belongs to. But now that we also have different replicates, we might like to be able to see that information too. We could assign a point shape to each replicate and a line type to each organism by specifying these as variables in the aesthetics, as shown below. Note: there is more information [here](https://www.sthda.com/english/wiki/ggplot2-line-types-how-to-change-line-types-of-a-graph-in-r-software) about available line types and how to specify them.
+
+```{r}
+ggplot(data = select_genes, aes(x = Timepoint, y = Expression, group = interaction(Gene, Replicate), color = Gene, shape = Replicate, linetype = Organism)) +
+geom_point(size = 2) +
+geom_line(linewidth = 1) +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)")
+```
+
+In contrast to our first display of this dataset, the graph now clearly demonstrates a sharp increase in the expression of T4 genes from 0-7 min and a simultaneous decrease in *E. coli* gene expression across all replicates.
+
+Another option would be to facet the graph based on both organism and replicate:
+
+```{r}
+ggplot(data = select_genes, aes(x = Timepoint, y = Expression, group = interaction(Gene, Replicate), color = Gene)) +
+geom_point(size = 2) +
+geom_line(linewidth = 1) +
+theme_classic(base_size = 22) +
+labs(x = "Time (min)", y = "Expression (TPM)") +
+facet_grid(Organism ~ Replicate)
+```
+
+The tidy data structure thus allows you to visualize your data in numerous informative ways. 
+
+Next we will explore some other geoms for additional types of data. 
+
+
+## Density and frequency plots (one continuous variable)
+
+To practice plotting data with one continuous variable, we will use Tess's colony size data. A bit of background: these data come from *E. coli* *efp*/*uup* knockout mutants containing two plasmids: one with an *efp* gene from one of several bacterial species and another either with *earp* or an empty vector. First, let's have a look at how the data are structured.
+
+```{r}
+setwd("C:/Users/G02.047/Documents/GitHub/R_Workshop/Basic_graphing")
+d3 = read.delim("data/colony_size_small.txt", sep = "\t", header = 1)
+d3[1:10,]
+```
+
+First we will explore the overall distribution of colony size data. There are several options for visualizing the distribution of continuous data, the most common of which are histograms and density/frequency plots. Let's try a histogram first:
+
+```{r}
+ggplot(data = d3, aes(x = Colony_width)) +
+geom_histogram() +
+theme_classic(base_size = 22) +
+labs(x = "Colony width (mm)")
+```
+
+A frequency polygon shows the same shape, but with a line instead of the numerous bars of a histogram:
+
+```{r}
+ggplot(data = d3, aes(x = Colony_width)) +
+geom_freqpoly() +
+theme_classic(base_size = 22) +
+labs(x = "Colony width (mm)")
+```
+
+A density plot is very similar, but the lines are smoother. This looks cleaner but hides the finer contours of the data. 
+
+```{r}
+ggplot(data = d3, aes(x = Colony_width)) +
+geom_density() +
+theme_classic(base_size = 22) +
+labs(x = "Colony width (mm)")
+```
+
+We can also assess information about colony sizes while taking into account the genotype. In this case, we are now dealing with one continuous variable and one or more categorical variables. 
+
+
+## Box and violin plots (one continuous and one or more categorical variables)
+
+
+To visualize the distribution of colony sizes, you could use a box plot. This is done by specifying the geom `geom_boxplot()` in your code (for simplicity, we will first separate the data just by the *efp* plasmid):
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, y = Colony_width)) +
+geom_boxplot() +
+theme_classic(base_size = 22) +
+labs(x = "EFP plasmid", y = "Colony width (mm)")
+```
+
+This is a mess because the x-axis labels are overlapping. We can add the line shown at the bottom of this code block to adjust the angle of these labels, preventing overlap:
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, y = Colony_width)) +
+geom_boxplot() +
+theme_classic(base_size = 22) +
+labs(x = "EFP plasmid", y = "Colony width (mm)") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+Other types of geoms, like violin, would also be suitable for these data:
+
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, y = Colony_width)) +
+geom_violin() +
+theme_classic(base_size = 22) +
+labs(x = "EFP plasmid", y = "Colony width (mm)") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+If you wanted to look at the distribution of colony size considering the gene present in both plasmids instead of just one, you could add an interaction term to the portion of the aesthetics specifying the x-axis variable:
+
+```{r}
+ggplot(data = d3, aes(x = interaction(EFP_plasmid, EarP_plasmid), y = Colony_width)) +
+geom_violin() +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony width (mm)") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+A dotplot is another option that is similar to the violin plot but shows the distribution in greater detail. These specific data are extremely dense so it's not a great option, but just to show how it's done, you would use `geom_dotplot`, specifying that each data point should be binned along the axis corresponding to the continuous variable (`binaxis = "y"`). Aesthetically, this type of graph generally looks nicest when the points are centered rather than aligned to the left or right edge, so we also specify this with the option `stackdir = "center"` in the `geom_dotplot` function. 
+
+```{r}
+ggplot(data = d3, aes(x = interaction(EFP_plasmid, EarP_plasmid), y = Colony_width)) +
+geom_dotplot(binaxis = "y", stackdir = "center") +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony width (mm)") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+As I mentioned, these data are very dense, so to make this graph legible at all we would need to play around with the bin size (`binwidth = 0.01` in the `geom_dotplot` function):
+
+```{r}
+ggplot(data = d3, aes(x = interaction(EFP_plasmid, EarP_plasmid), y = Colony_width)) +
+geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.01) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony width (mm)") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+Still using the colony size data, perhaps you would like to visualize the sample size for each combination of genotype. These are known as count data, which are distinct from standard continuous data. These are best visualized with a bar chart. 
+
+
+## Bar charts (one categorical and one count variable)
+
+Here, we need to specify that the `count` (the number of entries present for a given variable) should be displayed, rather than the values themselves:
+```{r}
+ggplot(data = d3, aes(x = interaction(EFP_plasmid, EarP_plasmid))) +
+geom_bar(stat = "count") +
+theme_classic(base_size = 16) +
+labs(x = "Plasmid combination", y = "Colony number") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+Another option would be to view the distribution of colonies with each EarP plasmid among all colonies with each type of *efp* plasmid. In this case, the y-axis would again be the colony count, the x-axis would be the origin of the gene in the *efp* plasmid, and the identity of the EarP plasmid would be represented by color. Because a bar generally has a larger area than a line or a point, we specify the variable `fill` in the aesthetics rather than the variable `color` to achieve this: 
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count") +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number")+
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+By default, ggplot produces a stacked bar chart for these data. If you want to ensure that your data are displayed this way, you would add the specification `position = "stack"` to the `geom_bar` function. If you would rather have them side by side, you can specify this by instead adding the option `position = "dodge"`: 
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "dodge") +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number")+
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+Returning to the stacked bar chart, there are a couple of easy things we can do to make this graph look a little nicer: 
+
+  - outline the segments of each bar 
+  - decrease the color saturation
+  - remove the underscore from the figure legend title
+
+To outline the segments of each bar, we specify a color (again, this rather confusingly refers to the color of the OUTLINE, not the color that FILLS the inside of the bar) within the `geom_bar` function:
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black") +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+To decrease the transparency (known in ggplot as the `alpha`), we specify a value greater than 0 but less than 1 in the `geom_bar` function, corresponding to a percent saturation (here 50%):
+
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+Finally, to manually assign a figure legend title, we include the desired name of the `fill` variable by adding it to `labs` along with the x- and y-axis labels:
+
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+
+# 5. Saving your plots
+
+Importantly, you can save any plot generated with ggplot using the `ggsave` function. By default, this will save the last graph that was rendered, but you can also assign a plot as a variable then specify that variable when you save it. For example:
+
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+followed by:
+```{r}
+ggsave("colony_number.jpg")
+```
+will accomplish the same as this:
+```{r}
+a = ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 22) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid")+
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+
+ggsave(plot = a, "colony_number.jpg")
+```
+Without any further specification, plots will be saved in your working directory. However, you can use full and relative filepaths to save elsewhere. You can save in most common image file formats (e.g., jpg, png, pdf, tif) just by changing the target file name. Depending on the size of your graph, you can alter the size of the saved graph by adding the `width` and `height` options:
+
+```{r}
+ggsave(plot = a, "colony_number.jpg", width = 10, height = 10)
+```
+
+
+
+If you have other questions about ggsave, more information is available [here](https://www.rdocumentation.org/packages/ggplot2/versions/0.9.0/topics/ggsave). 
+
+
+# 6. Graphs including statistics
+
+Sometimes you might want your graphs to include information about statistical analyses. Here we will briefly go over three common types: correlations, mean differences between two groups, and mean differences between more than two groups. 
+
+## Correlations (two continuous variables)
+
+Let's say you have some data for bacterial growth in response to antibiotic treatment. For this dataset, the OD was measured at a single end-point in samples treated with a gradient of antibiotic concentrations ranging from 0 to 10 ug/mL. First we read in the table:
+
+```{r}
+setwd("C:/Users/G02.047/Documents/GitHub/R_Workshop/Basic_graphing")
+d4 = read.delim("data/antibiotic_gradient.txt", sep = "\t", header = 1)
+d4[1:10,]
+```
+
+Here's what these data look like displayed as a simple scatterplot:
+
+
+```{r}
+ggplot(data = d4, aes(x = Antibiotic_concentration, y = OD)) +
+geom_point() +
+theme_classic(base_size = 22) +
+labs(x = "Antibiotic (ug/mL)", y = "OD (600 nm)")
+```
+
+We can then add a regression line to visualize the overall relationship between endpoint OD and antibiotic concentration. This is done using the `ggpmisc` package, which is a ggplot2 add-on. Instead of a geom, the function to call here is `stat_poly_line`:
+```{r}
+library(ggpmisc)
+ggplot(data = d4, aes(x = Antibiotic_concentration, y = OD)) +
+geom_point() +
+stat_poly_line() +
+theme_classic(base_size = 22) +
+labs(x = "Antibiotic (ug/mL)", y = "OD (600 nm)")
+```
+
+If you'd like to remove the shading showing the standard error, that can be done with the option `se = FALSE` in the `stat_poly_line` function:
+
+```{r}
+ggplot(data = d4, aes(x = Antibiotic_concentration, y = OD)) +
+geom_point() +
+stat_poly_line(se = FALSE) +
+theme_classic(base_size = 22) +
+labs(x = "Antibiotic (ug/mL)", y = "OD (600 nm)")
+```
+
+
+Perhaps we'd like to know the exact strength of the correlation. The test that is applied depends on whether the data are normally distributed or not. To assess whether the OD values are normally distributed, we will first apply Shapiro-Wilk's method, which is available in base R:
+
+```{r}
+shapiro.test(d4$OD)
+```
+
+The data significantly deviate from a normal distribution (*p* < 0.05). We will therefore use Spearman's rank sum test to assess if there is a correlation using the `stat_correlation` function; if the distribution was normal, we would calculate Pearson's correlation coefficient instead using the same approach. 
+
+There are a couple of options to be specified in the `stat_correlation` function: the statistical test to run (here, `method = "spearman"`) and the parameter labels to display on the graph (`"R"` representing the correlation coefficient and `"P"` the *p*-value) (`use_label("R", "P")`). 
+
+```{r}
+ggplot(data = d4, aes(x = Antibiotic_concentration, y = OD)) +
+geom_point() +
+stat_poly_line(se = FALSE) +
+stat_correlation(method = "spearman", use_label("R", "P")) +
+theme_classic(base_size = 22) +
+labs(x = "Antibiotic (ug/mL)", y = "OD (600 nm)")
+```
+
+I was taught that the "p" in *p*-value should never be capitalized so this rendering bothers me personally. If it also bothers you, you can specify in the `stat_correlation` function that the *p* on the graph should be lowercase (`small.p = TRUE`):
+
+```{r}
+ggplot(data = d4, aes(x = Antibiotic_concentration, y = OD)) +
+geom_point() +
+stat_poly_line(se = FALSE) +
+stat_correlation(method = "spearman", use_label("R", "P"), small.p = TRUE) +
+theme_classic(base_size = 22) +
+labs(x = "Antibiotic (ug/mL)", y = "OD (600 nm)")
+```
+
+## *t*-tests (samples with one continuous and one categorical variable)
+
+Now let's say you have bacterial growth data for samples belonging to two different groups: citric acid-treated and an untreated control. We'll read in the data first:
+
+```{r}
+setwd("C:/Users/G02.047/Documents/GitHub/R_Workshop/Basic_graphing")
+d5 = read.delim("data/acid_treatment.txt", sep = "\t", header = 1)
+d5[1:10,]
+```
+We can visualize the data with a boxplot:
+
+```{r}
+ggplot(data = d5, aes(x = Treatment, y = OD)) +
+geom_boxplot() +
+theme_classic(base_size = 22) +
+labs(x = "Treatment", y = "OD")
+```
+
+Is there a significant difference between these groups? With a continuous variable and two treatment groups, we should use either Student's *t*-test (if the data are normally distributed) or the nonparametric equivalent, a Mann-Whitney U-test, if they are not normally distributed. We will subset the OD values for the control and the OD values for the citric acid-treated group and assign those to variables, then assess the distribution of each using the Shapiro-Wilk method:
+
+```{r}
+control = d5[d5$Treatment == "Control", "OD"]
+citric_acid = d5[d5$Treatment == "Citric acid", "OD"]
+shapiro.test(control)
+shapiro.test(citric_acid)
+```
+These are normally distributed (*p* > 0.05) for both so we will use Student's *t*-test. In base R, we do this by calling the `t.test` function then specifying the two groups of sample values:
+
+```{r}
+t.test(control, citric_acid)
+```
+
+This indicates that there is a significant difference between the groups. We will use the package `ggsignif` to add a bracket with a label denoting the significance level to the boxplot. For this, we call the `ggsignif` function and specify the groups ("Control" and "Citric acid") and the test to run (`t.test`):
+```{r}
+library(ggsignif)
+ggplot(data = d5, aes(x = Treatment, y = OD)) +
+geom_boxplot() +
+geom_signif(test = "t.test", comparisons = list(c("Control", "Citric acid")), map_signif_level = TRUE, textsize = 6) +
+theme_classic(base_size = 22) +
+labs(x = "Treatment", y = "OD")
+```
+
+What if we have more than two treatment groups?
+
+
+## Analysis of variance (multiple samples with one continuous and one or more categorical variables)
+
+
+First we will read in an example df with OD values for 15 bacterial samples from three antibiotic treatment groups:
+
+```{r}
+setwd("C:/Users/G02.047/Documents/GitHub/R_Workshop/Basic_graphing")
+d6 = read.delim("data/antibiotic_three_groups.txt", sep = "\t", header = 1)
+d6
+```
+A basic boxplot will give us a general idea of how the data look:
+```{r}
+ggplot(data = d6, aes(x = Treatment, y = OD)) +
+geom_boxplot() +
+theme_classic(base_size = 22) +
+labs(x = "Treatment", y = "OD")
+```
+
+We will now generate a table summarizing the data using the `tidyverse` package (documentation [here](https://cran.r-project.org/web/packages/tidyverse/tidyverse.pdf)), specifically to show the mean and standard deviation:
+
+```{r}
+library(tidyverse)
+output = group_by(d6, Treatment) %>%
+  summarise(Average=mean(OD), StDev = sd(OD)) %>%
+  arrange(desc(Average))
+output
+```
+
+From the summary table and the graph, it's clear that there are differences between some of these treatments, but statistics are required to demonstrate that fact quantitatively. Because these are continuous data in three treatment groups, we will either use analysis of variance (ANOVA) if the data are normally distributed or a Kruskal-Wallis test if they are non-normally distributed. As in the previous section, we will subset the data by group and assign them to variables, then perform the Shapiro-Wilk test:
+
+```{r}
+amo = d6[d6$Treatment == "Amoxicillin", "OD"]
+amp = d6[d6$Treatment == "Ampicillin", "OD"]
+nit = d6[d6$Treatment == "Nitrofurantoin", "OD"]
+shapiro.test(amo)
+shapiro.test(amp)
+shapiro.test(nit)
+```
+
+These data are normally distributed so we can use an ANOVA. This is accomplished using the `aov` function in base R as follows:
+
+```{r}
+anova = aov(OD ~ Treatment, data = d6)
+summary(anova)
+```
+
+The results indicate that there is a significant difference between samples, but the ANOVA summary does not indicate WHICH samples show significant differences. We will therefore perform a post-hoc Tukey's honestly significant difference (HSD) test to identify the specific differences present here: 
+
+```{r}
+tukey = TukeyHSD(anova)
+tukey
+```
+
+Tukey's test shows a significant difference in OD between the nitrofurantoin and amoxicillin treatments but not between ampicillin and either of the other two antibiotics. This makes sense based on the graph but now we have statistics to back it up. 
+
+A common way to show this would be with brackets, like we did with Student's *t*-test.
+
+But a cleaner and more informative way is with significance letters. We will use the package `multcompView` (documentation [here](https://cran.r-project.org/web/packages/multcompView/multcompView.pdf)) to calculate the groupings (treatments that are significantly different from one another) from the HSD test and assign a letter to each group.
+
+```{r}
+library(multcompView)
+letters = multcompLetters4(anova, tukey)
+letters
+```
+
+These letters indicate that the amoxicillin group differs significantly from the nitrofurantoin group and that ampicillin does not differ significantly from either amoxicillin or nitrofurantoin. 
+For graphing, we will add the significance letters to  the summary table:
+
+```{r}
+cld = as.data.frame.list(letters$Treatment)
+output$significance = cld$Letters
+output
+```
+
+And finally, we will use a bar chart to show the average, using error bars to indicate the standard deviation and adding labels to each bar to show the significance groups. 
+
+```{r}
+ggplot(data = output, aes(x = Treatment, y = Average)) + 
+geom_bar(stat = "identity", alpha = 0.5, color = "black", linewidth = 0.5) +
+geom_errorbar(aes(ymin = Average-StDev, ymax=Average+StDev), width = 0.2) +
+geom_text(aes(label = significance, y = Average + StDev), vjust = -0.5, size = 6) +
+labs(x = "Treatment", y = "OD") +
+theme_classic(base_size = 22)
+```
+
+
+# 7. Additional resources
+
+For further reading about visualizing your data in R, there are many great resources available. Here are a few:
+
+- The [ggplot2 cheat sheet](https://rstudio.github.io/cheatsheets/data-visualization.pdf), which has a very compact overview of the basic things you might want to know how to do with ggplot.  
+- The [R Graph Gallery](https://r-graph-gallery.com/): examples of and code for primarily ggplot-based graphs.
+- The [R Graphics Cookbook](https://r-graphics.org/): recipes for mostly (but not entirely) ggplot-based graphs. 
+- [ggplot2: Elegant Graphics for Data Analysis](https://ggplot2-book.org/): a book explaining more of the background underlying and philosophy of ggplot. 
+- [Stack Overflow](https://stackoverflow.com/questions/tagged/ggplot2): a great place to search for questions other people have had (and usually found answers to) about graphing.
+- Your friendly neighborhood bioinformaticians :) 

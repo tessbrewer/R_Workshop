@@ -1,0 +1,305 @@
+---
+title: "R Basics"
+output: html_document
+
+---
+
+```{r, load packages, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr) #making tables look nice in Rmarkdown
+library(kableExtra) #making tables look nice in Rmarkdown
+
+pretty_table <- function(df){
+  kable(head(df),
+      format = "html", table.attr = "style='width:50%;'") %>% 
+      kableExtra::kable_styling()
+}
+```
+
+
+#### Getting help
+
+If you're not sure how a particular command works in R, your first step is always looking at the help page. For example, if we have questions about `read.delim`, the first thing we can do is  
+
+
+```{r, questions}
+? read.delim
+```
+
+This brings up the R documentation for this specific command.  
+
+If this page doesn't answer your question I highly recommend googling your issue. Many people have struggled with many things and some of them were nice enough to post online about their solutions. 
+
+<br>
+
+#### Loading and installing packages
+R packages are collections of functions and tools developed by people who use R. They can be very helpful, and some (like ggplot2) are practically essential. Here are some commands related to their installation and loading.
+
+  * `install.packages`: installs package
+  * `library`: loads installed package. You must load the packages you'll use each time you restart a session of R. 
+
+<br>
+
+#### Basic syntax and operators
+
+In R you can assign a variable in two different ways: 
+
+  * `y = 4`
+  * `x <- 4`
+  
+There is no difference between the two. 
+
+We'll also go over some operators, but just the ones that will be useful for our exercises.  
+
+The following operators will return a boolean value (TRUE or FALSE):
+
+  * `a == b`: tests for equality
+  * `a != b`: tests for inequality (generally a "!" in R negates something)
+  * `a > b`:  tests for greater than
+  * `a >= b`: tests for greater than or equal to
+  * `%in%`: tests whether an element belongs to a vector
+  
+Lastly we have:
+
+  * `$` lets you access objects stored within other objects
+
+<br>
+
+## Loading data and accessing elements of a dataframe
+
+We'll start with reading a file into R.  
+
+Change this path to where you saved the R_Workshop folder. 
+
+
+```{r, reading_data, message=FALSE, strip.white=TRUE, fig.height=5.5, fig.width=12, fig.align='center'}
+
+colony_size <- read.delim('~/Documents/munich/R_Workshop/Basic_data_manipulation/colony_size.txt')
+class(colony_size) 
+
+```
+
+`read.delim` returns a data.frame object. Let's take a look at it.  
+
+```{r, reading_data_head, message=FALSE}
+
+pretty_table(colony_size)
+
+```
+
+This is colony size data exported from ImageJ. Every row is data for one colony, and different plates had different numbers of colonies. 
+Let's play with the dataframe. 
+
+The basic layout of dataframes is `df[rows, columns]`. We can also use the `$` operator to access columns. This is more human readable. 
+
+<br>
+
+#### Columns
+
+You can access columns in several ways. By coordinates:
+
+```{r, accessing dataframe_coor}
+head(colony_size[, 1]) 
+```
+
+By column names:
+```{r, accessing dataframe_colname}
+head(colony_size[, 'Area']) 
+```
+
+Or by column names with the dollar sign:
+```{r, accessing dataframe_dollar}
+head(colony_size$Area) 
+```
+
+These methods are all equivalent. But you don't need to take my word for it! We can double check:
+```{r, fgfd}
+table(colony_size[, 'Area'] == colony_size[, 1])
+```
+
+Why does it say TRUE 1442? Because R is comparing each row in the column "Area", and there are `r nrow(colony_size)` rows, each of which returned TRUE for the comparison.
+
+<br>
+
+#### Rows
+
+Rows can be accessed this way:
+
+```{r, rows}
+colony_size[1, ] 
+```
+
+<br>
+
+#### Cells
+
+And specific cells of the dataframe can be accessed like this:
+
+```{r, cells}
+colony_size[1, 1]
+```
+<br>
+
+## Subsetting your dataframe
+
+Oftentimes you want to get a subset of your dataframe. Let's see which different variables we have and then we'll subset for one in particular.
+
+```{r, tables}
+table(colony_size$source)
+```
+
+Let's say we want to subset our dataframe to include ONLY rows that are from the source 'deltaefpuup_deac24empty33'. 
+We can subset using coordinates, like this: `colony_size[colony_size$source == 'deltaefpuup_deac24empty33', ]`
+
+Here we combined a logical array with the coordinate system. The part inside the brackets produces a vector of TRUE/FALSE that looks like this:
+
+```{r, subset with coor}
+head(colony_size$source == 'deltaefpuup_deac24empty33')
+```
+
+We are asking R to tell us every row in the 'source' column where the cell is equal to 'deltaefpuup_deac24empty33'. We can then use this vector in combination with the coordinate system to return the dataframe with only rows that returned a TRUE. 
+
+```{r, subset with coor whole}
+check_coor <- colony_size[colony_size$source == 'deltaefpuup_deac24empty33', ]
+table(check_coor$source)
+```
+
+We can also use `subset` which is a base r function -- it's more human readable.
+
+```{r, subset with subset whole}
+check_subset <- subset(colony_size, source == 'deltaefpuup_deac24empty33')
+table(check_subset$source)
+```
+
+We can check that they return the same exact thing:
+```{r, true check}
+table(check_subset == check_coor)
+```
+Cooooool. 
+
+<br>
+
+## Let R do the dirty work
+
+Say you want to subset the dataframe for only the three samples with the most colonies. You can first use `table` to see which samples have the most entries, then manually select for them by typing. We can do that like this:
+
+```{r, hard code}
+sort(table(colony_size$source))
+check_3_hardcoded <- subset(colony_size, source %in% 
+                     c('deltaefpuup_heau24earp33', 'deltaefpuup_eco24earp33', 'deltaefpuup_ppu24earp33'))
+table(check_3_hardcoded$source)
+```
+
+This is called hard-coding data and usually not the best way to go about things in R. Say you want to use this same script for another set of colony sizes. You'd have to rewrite this whole part!   
+
+Instead, we can make R do this for us.
+
+```{r, non-hard coded}
+tail(sort(table(colony_size$source)), n = 3) #those are the three we want
+names(tail(sort(table(colony_size$source)), n = 3)) #get just their names, not their frequency counts
+what_we_want <- names(tail(sort(table(colony_size$source)), n = 3)) #write those to a variable
+check_3_lazy <- subset(colony_size, source %in% what_we_want) #use that to subset
+table(check_3_lazy$source)
+```
+
+<br>
+
+## Modifying dataframes
+
+Oftentimes we want to modify dataframes. For instance, maybe you want to rename a column name:
+```{r, modifying dataframes}
+
+colnames(check_subset) #list the column names of our dataframe
+
+colnames(check_subset)[1] #check first column name
+colnames(check_subset)[1] <- 'butts'
+colnames(check_subset) #success
+
+```
+
+<br>
+
+We can also add new columns. You can add them very simply, like this:
+
+```{r, new columns}
+check_subset$three <- 3
+head(check_subset$three)
+```
+
+We can also use `ifelse` statements to add columns. Either rather simply:
+```{r ifelse simple}
+colony_size$max_dimension <- ifelse(colony_size$Height > colony_size$Width, 
+                                    colony_size$Height, 
+                                    colony_size$Width)
+head(colony_size[, c(7:8, 17)])
+```
+
+Or slightly more complex columns that are dependent on other values. For example:
+```{r, ifelse}
+colony_size$type <- ifelse(grepl('deltaefpuup_empty24', colony_size$source) == TRUE, 'control', 'experimental')
+table(colony_size$source, colony_size$type)
+```
+<br>
+
+## Basic analysis with aggregate
+
+`aggregate` is a useful base R function for summarizing your data. We can compare the mean colony size of each sample:
+
+```{r, aggregate mean}
+mean_size <- aggregate(max_dimension ~ source, colony_size, mean)
+pretty_table(mean_size)
+```
+
+Or the standard deviation:
+```{r, aggregate, sd}
+stdev_size <- aggregate(max_dimension ~ source, colony_size, sd)
+pretty_table(stdev_size)
+```
+
+<br>
+
+## Saving your files
+We added two new columns to our dataframe that we'll use later on. So, let's save this new dataframe with `write.table`!  
+
+<br>
+
+#### Delimiters
+I usually save my files in the `.txt` format. These type of files use TAB characters for delimiters.  
+
+Delimiters basically tell the computer where the boundary between columns is. For example, `.csv` files use commas as delimiters.  
+
+Save it however you want, but you must tell R what you want as the delimiter.  
+
+In the case of `.txt` files, that's  `sep = '\t'`. For `.csv` files it would be `sep = ','`
+
+<br>
+
+#### Row.names in R
+
+`row.names` are special rownames you can provide for a dataframe. They have strict requirements:
+
+  1. Must be exact length of the number of rows, with NO missing values
+  2. Cannot contain duplicate names
+
+They are useful in certain situations (you can ask me if you're interested).  
+
+In these intro courses however, we don't use them, and for that reason I put `row.names = FALSE`.
+
+<br>
+
+#### Don't make R mad. 
+
+There are some general guidelines for naming files you will access in R.  
+
+Do not use any special characters in file names, or spaces.  
+
+Do not start column names with numbers. R does not like this!
+
+Otherwise, try to use common sense. Don't use commas within columns if your file is `.csv`. This is asking for trouble!
+
+
+```{r, saving}
+? write.table
+
+write.table(colony_size, '~/Documents/munich/R_Workshop/Basic_data_manipulation/colony_size_updated.txt', 
+            row.names = FALSE, sep = '\t')
+```

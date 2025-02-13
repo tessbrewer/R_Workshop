@@ -1,0 +1,11 @@
+Treatment	OD
+Control	0.5528
+Control	0.482300013
+Control	0.587100029
+Control	0.654600024
+Control	0.65140003
+Citric acid	0.296499997
+Citric acid	0.458999991
+Citric acid	0.398600012
+Citric acid	0.324400008
+Citric acid	0.458999991

@@ -1,0 +1,16 @@
+Sample	Treatment	OD
+1	Nitrofurantoin	0.6
+2	Nitrofurantoin	0.2
+3	Nitrofurantoin	0.4
+4	Nitrofurantoin	0.3
+5	Nitrofurantoin	0.2
+6	Amoxicillin	1.1
+7	Amoxicillin	1.5
+8	Amoxicillin	0.7
+9	Amoxicillin	1.3
+10	Amoxicillin	1.2
+11	Ampicillin	0.8
+12	Ampicillin	0.5
+13	Ampicillin	0.6
+14	Ampicillin	0.7
+15	Ampicillin	1.2
