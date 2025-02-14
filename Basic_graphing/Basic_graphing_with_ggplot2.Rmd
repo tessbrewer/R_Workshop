@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
 
@@ -102,7 +102,7 @@ tidy = pivot_longer(data = untidy, cols = 3:17, names_to = c("Timepoint", "Repli
 tidy[1:10,]
 ```
 
-Because we'll want to graph the gene expression data across timepoints, we want to make sure the timepoint values are considered numbers (continuous data) rather than characters (categorical data). We will therefore remove the "T" from every timepoint value and explicitly tell R to treat the resulting values as numbers rather than characters. This will take a minute to complete because the dataframe is very large.
+Because we'll want to graph the gene expression data across timepoints, we want to make sure the timepoint values are considered numbers (continuous data) rather than characters (categorical data). We will therefore remove the "T" from every timepoint value and explicitly tell R to treat the resulting values as numbers rather than characters. 
 
 ```{r}
 tidy$Timepoint = gsub("T", "", tidy$Timepoint)
@@ -386,6 +386,7 @@ Still using the colony size data, perhaps you would like to visualize the sample
 ## Bar charts (one categorical and one count variable)
 
 Here, we need to specify that the `count` (the number of entries present for a given variable) should be displayed, rather than the values themselves:
+
 ```{r}
 ggplot(data = d3, aes(x = interaction(EFP_plasmid, EarP_plasmid))) +
 geom_bar(stat = "count") +
@@ -695,6 +696,7 @@ theme_classic(base_size = 22)
 For further reading about visualizing your data in R, there are many great resources available. Here are a few:
 
 - The [ggplot2 cheat sheet](https://rstudio.github.io/cheatsheets/data-visualization.pdf), which has a very compact overview of the basic things you might want to know how to do with ggplot.  
+- [from Data to Viz](https://www.data-to-viz.com/), which has a [decision tree](https://www.data-to-viz.com/#poster_full) to help you decide what type of graph would be best for your data type. 
 - The [R Graph Gallery](https://r-graph-gallery.com/): examples of and code for primarily ggplot-based graphs.
 - The [R Graphics Cookbook](https://r-graphics.org/): recipes for mostly (but not entirely) ggplot-based graphs. 
 - [ggplot2: Elegant Graphics for Data Analysis](https://ggplot2-book.org/): a book explaining more of the background underlying and philosophy of ggplot. 

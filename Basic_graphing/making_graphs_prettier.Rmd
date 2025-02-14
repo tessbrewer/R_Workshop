@@ -1,0 +1,229 @@
+---
+title: "Making your graph look EVEN NICER"
+author: "Siobhan Cusack"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+Here is a non-comprehensive list of questions you might have when ggplotting that are not critical to graphing but can help make your graph look nicer. There are also a couple of questions you might have about ggplotting in general. These things are either somewhat complicated on their own OR can cause complications that you might not want to deal with. However, if you are an intrepid data visualization explorer, they may be of interest to you. 
+
+
+### How do I change the order of variables on each axis?
+You can set the variables in a specific order by doing what's known as factoring. As an example, for the colony size data, maybe you'd like to order the x-axis in descending order by number of colonies containing each EFP plasmid. Here is how the graph looks before factoring the EFP plasmid identities:
+
+```{r}
+library(ggplot2)
+setwd("C:/Users/G02.047/Documents/GitHub/R_Workshop/Basic_graphing")
+d3 = read.delim("data/colony_size_small.txt", sep = "\t", header = 1)
+
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+
+Now with factoring (the first line):
+
+```{r}
+d3$EFP_plasmid = factor(d3$EFP_plasmid, levels = c("E.coli", "H.aurantiacus", "N.communis", "D.radiodurans", "P.putida", "S.oneidensis", "G.ferrihydriticus", "M.prima","D.acetiphilus", "Empty.vector"))
+
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+If you want the smaller segment to be at the top instead of the bottom of each bar, you can change this by factoring the EarP plasmid too. 
+
+```{r}
+d3$EarP_plasmid = factor(d3$EarP_plasmid, levels = c("Empty.vector", "earp"))
+
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+### How can I change the colors to my liking?
+
+You can manually set the color palette to anything your heart desires using either a predefined set of names recognized by ggplot (a chart showing the names and colors can be found [here](https://raw.githubusercontent.com/demidovakatya/ggcolors/master/colors.png)) or with a hexadecimal color code (which you can find for any color [here](https://www.google.com/search?client=firefox-b-d&q=hex+color+picker). Either way, we add the option `scale_fill_manual` to specify the color values like this:
+
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+scale_fill_manual(values = c("grey", "purple")) +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+The same holds true for other types of graphs: just add the `scale_fill_manual` function. For example, we could visually assess the difference in size between colonies complemented with EarP compared to those with the empty vector by making a density plot and using the fill to represent each type of EarP plasmid:
+
+```{r}
+ggplot(data = d3, aes(x = Colony_width, fill = EarP_plasmid)) +
+geom_density(alpha = 0.5) +
+theme_classic(base_size = 22) +
+scale_fill_manual(values = c("purple", "grey")) +  
+labs(x = "Colony width", y = "Density", fill = "EarP plasmid")
+```
+
+Important note: if you are using a geom such geom_line or geom_point that takes a `color` instead of a `fill` argument, you would specify the colors using the same method, but with the `scale_color_manual` instead of the `scale_fill_manual` function:
+
+```{r}
+setwd("C:/Users/G02.047/Documents/GitHub/R_Workshop/Basic_graphing")
+genes = read.delim("data/GSE211026_small.txt", sep = "\t", header = 1)
+
+ggplot(data = genes, aes(x = Timepoint, y = Expression, color = Gene)) +
+geom_point() + 
+theme_classic(base_size = 22) +
+scale_color_manual(values = c("purple", "grey", "skyblue", "red", "pink", "darkgreen")) +  
+labs(x = "Colony width", y = "Density", fill = "EarP plasmid")
+```
+
+
+
+
+### How do I change the names of items in the figure legend?
+
+You can do this by adding the `label` option to `scale_fill_manual`. Here, you specify the name of each as it is in the dataframe, then specify the name as you want it to appear in the graph. 
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+scale_fill_manual(labels = c("earp" = "EarP", "Empty.vector" = "Empty vector"), values = c("grey", "purple")) +
+theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+Of course, if you're doing this for a variable you have set as `color` instead of `fill`, the function would be `scale_color_manual` instead of `scale_fill_manual`:
+
+```{r}
+ggplot(data = genes, aes(x = Timepoint, y = Expression, color = Gene)) +
+geom_point() + 
+theme_classic(base_size = 22) +
+scale_color_manual(labels = c("b0001" = "E.coli gene1", "b4200" = "E.coli gene2", "b4401" = "E.coli gene3", "T4p001" = "T4 gene1", "T4p003" = "T4 gene2", "T4p034" = "T4 gene3"), values = c("purple", "grey", "skyblue", "red", "pink", "darkgreen")) +  
+labs(x = "Colony width", y = "Density", fill = "EarP plasmid")
+```
+
+
+### How can I get my bars to be right up against the x-axis?
+
+You do what's known as expanding the y-axis by adding the line of code shown at the bottom here: 
+
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+scale_fill_manual(labels = c("earp" = "EarP", "Empty.vector" = "Empty vector"), values = c("grey", "purple")) +
+theme(axis.text.x = element_text(angle = 50, hjust = 1)) +
+scale_y_continuous(expand = expansion(mult = c(0, .1)))
+```
+
+### How can I add a reference line to a graph?
+Let's say that for some reason you are particularly interested in genotypes with more than 100 colonies and you wish to highlight this in your graph. You could add a horizontal line at y = 100 by adding the `geom_hline` (*h*orizontal line) function to your code, specifying that the line should intercept the y-axis at 100:
+
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+scale_fill_manual(labels = c("earp" = "EarP", "Empty.vector" = "Empty vector"), values = c("grey", "purple")) +
+theme(axis.text.x = element_text(angle = 50, hjust = 1)) +
+scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+geom_hline(yintercept = 100)
+```
+
+And of course, as with other lines in ggplot, you can adjust the [line type](https://www.sthda.com/english/wiki/ggplot2-line-types-how-to-change-line-types-of-a-graph-in-r-software) and [color](https://raw.githubusercontent.com/demidovakatya/ggcolors/master/colors.png) to your liking:
+
+```{r}
+ggplot(data = d3, aes(x = EFP_plasmid, fill = EarP_plasmid)) +
+geom_bar(stat = "count", position = "stack", color = "black", alpha = 0.5) +
+theme_classic(base_size = 16) +
+labs(x = "EFP plasmid", y = "Colony number", fill = "EarP plasmid") +
+scale_fill_manual(labels = c("earp" = "EarP", "Empty.vector" = "Empty vector"), values = c("grey", "purple")) +
+theme(axis.text.x = element_text(angle = 50, hjust = 1)) +
+scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+geom_hline(yintercept = 100, linetype = 2, color = "red")
+```
+
+If you had a continuous variable on the x-axis and wanted to add a *v*ertical line, you would do the same thing but using the `geom_vline` function. 
+
+
+
+## How can I make a Venn diagram?
+
+You probably should not. These are usually misleading because most tools to generate them do not show proportions accurately, leading to incorrect impressions about the relative size of each group. A better option is to use a bar chart, select two complementary colors for the two individual groups, and select a color at the midpoint between the two to represent the overlap. Let's say we have a dataframing showing the number of *E. coli* strains we have that are resistant to amoxicillin, ciprofloxacin, or both: 
+
+
+```{r}
+setwd("C:/Users/G02.047/Documents/GitHub/Tess_R_Workshop/Basic_graphing")
+bar = read.delim("data/bar_not_venn.txt", sep = "\t", header = 1)
+bar
+```
+
+Using [this tool](https://meyerweb.com/eric/tools/color-blend/#:::hex), we can select two colors 
+
+```{r}
+bar$Antibiotic_resistance = factor(bar$Antibiotic_resistance, levels = c("Amoxicillin", "Amoxicillin+Ciprofloxacin", "Ciprofloxacin"))
+
+ggplot(data = bar, aes(x = Species, fill = Antibiotic_resistance)) +
+geom_bar(stat = "count", position = "stack", alpha = 0.3) +
+theme_classic(base_size = 16) +
+scale_fill_manual(values = c("#0000FF", "#801A80", "#FF3300"))
+```
+
+
+If you've carefully weighed the pros and cons and you still want to use a Venn diagram (because for example you have more than two individual groups), you can do so with the ggplot add-on [ggvenn](https://cran.r-project.org/web/packages/ggvenn/readme/README.html). You would have your data structured in a very specific and un-tidy way:
+
+```{r}
+setwd("C:/Users/G02.047/Documents/GitHub/Tess_R_Workshop/Basic_graphing")
+venn = read.delim("data/for_venn.txt", sep = "\t", header = 1)
+venn
+```
+
+Then you would load ggvenn and plot it like this:
+
+```{r}
+library(ggvenn)
+ggplot(venn, aes(A = `Amoxicillin`, B = `Ciprofloxacin`)) +
+  geom_venn() + theme_void() + coord_fixed()
+```
+
+You can adjust the colors and add additional groups as you wish. 
+
+
+## How can I make a pie chart?
+
+You should never. If you're thinking "but Siobhan, I saw you display your data with a pie chart one time!", rest assured it was against my will. They are not a good way to display your data because humans are [very bad at estimating angles](https://www.data-to-viz.com/caveat/pie.html). There are [numerous better ways](https://www.data-to-viz.com/story/OneNumOneCat.html) to display these types of data, including but not limited to bar charts, lollipop charts, and tree maps. If you absolutely insist on using this much-reviled data visualization option, there is a tutorial [here](https://r-graph-gallery.com/piechart-ggplot2.html). 
+
+
+
+## The end
+
+We have come to the end of Data Visualization in R with Tess and Siobhan, but your data visualization in R journey is just beginning! Don't forget that you can find the solutions to many data visualization questions on the [ggplot2 cheat sheet](https://rstudio.github.io/cheatsheets/data-visualization.pdf), in the [R Graph Gallery](https://r-graph-gallery.com/), in the [R Graphics Cookbook](https://r-graphics.org/), and on [Stack Overflow](https://stackoverflow.com/questions/tagged/ggplot2).
+Thank you for spending your Valentine's Day with us! One last plot for the road:
+
+```
+mystery = read.delim("data/surprise.txt", sep = "\t", header = 1)
+
+ggplot(data = mystery, aes(x = x, y = y, color = "red")) +
+geom_point(size = 10) +
+theme_classic() +
+scale_color_discrete(guide = "none") +
+theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank(), axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
+```
+
+
+
+
+
+
