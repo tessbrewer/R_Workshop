@@ -1,0 +1,25 @@
+"seq_file"	"NR"	"STRAIN"	"FACS_pool_color"	"FOR_primer"	"REV_primer"	"fwd_barcode"	"rev_barcode"	"code"	"library"	"sample"	"type"	"Axis01PCOA"	"Axis02PCOA"
+"delta_efp10_april"	"405"	10	"BW_efp"	"white"	"F1"	"R4"	"TCAT"	"TTGACCAG"	"delta_efp"	"XXXX"	"delta_efp10_april"	"april"	-0.352248692652237	0.0647428597658178
+"delta_efp10_may"	"405"	10	"BW_efp"	"white"	"F1"	"R4"	"TCAT"	"TTGACCAG"	"delta_efp"	"XXXX"	"delta_efp10_may"	"may"	-0.3503383290238	0.0641825862113307
+"delta_efp12_april"	"405"	12	"BW_efp"	"red"	"F3"	"R2"	"TGCGAGA"	"CGCTCA"	"delta_efp"	"XXXX"	"delta_efp12_april"	"april"	-0.20876432334971	0.0743379432221583
+"delta_efp12_may"	"405"	12	"BW_efp"	"red"	"F3"	"R2"	"TGCGAGA"	"CGCTCA"	"delta_efp"	"XXXX"	"delta_efp12_may"	"may"	-0.203311925367581	0.074548162654563
+"delta_efp13_april"	"406"	13	"BW_efp"	"white"	"F1"	"R4"	"TCAT"	"TTGACCAG"	"delta_efp"	"PXXX"	"delta_efp13_april"	"april"	-0.2559184332801	-0.0676237756657034
+"delta_efp13_may"	"406"	13	"BW_efp"	"white"	"F1"	"R4"	"TCAT"	"TTGACCAG"	"delta_efp"	"PXXX"	"delta_efp13_may"	"may"	-0.258664923900568	-0.0652063787543529
+"delta_efp15_april"	"406"	15	"BW_efp"	"red"	"F2"	"R2"	"AAGTGA"	"CGCTCA"	"delta_efp"	"PXXX"	"delta_efp15_april"	"april"	0.32896822215736	-0.0755127940833592
+"delta_efp15_may"	"406"	15	"BW_efp"	"red"	"F2"	"R2"	"AAGTGA"	"CGCTCA"	"delta_efp"	"PXXX"	"delta_efp15_may"	"may"	0.343998603691133	-0.0703375342905537
+"delta_efp16_april"	"406"	16	"BW_efp"	"white"	"F2"	"R3"	"AAGTGA"	"GCTAACA"	"delta_efp"	"XPXX"	"delta_efp16_april"	"april"	0.176985503341289	-0.429007449080208
+"delta_efp16_may"	"406"	16	"BW_efp"	"white"	"F2"	"R3"	"AAGTGA"	"GCTAACA"	"delta_efp"	"XPXX"	"delta_efp16_may"	"may"	0.185435821965672	-0.430689498364276
+"delta_efp18_april"	"406"	18	"BW_efp"	"red"	"F4"	"R4"	"GACATCCA"	"TTGACCAG"	"delta_efp"	"XPXX"	"delta_efp18_april"	"april"	0.118988681436686	-0.027923518094819
+"delta_efp18_may"	"406"	18	"BW_efp"	"red"	"F4"	"R4"	"GACATCCA"	"TTGACCAG"	"delta_efp"	"XPXX"	"delta_efp18_may"	"may"	0.131442722080968	-0.025215820520198
+"delta_efp19_april"	"406"	19	"BW_efp"	"white"	"F3"	"R2"	"TGCGAGA"	"CGCTCA"	"delta_efp"	"XXPX"	"delta_efp19_april"	"april"	0.314974234272385	0.337918653435432
+"delta_efp19_may"	"406"	19	"BW_efp"	"white"	"F3"	"R2"	"TGCGAGA"	"CGCTCA"	"delta_efp"	"XXPX"	"delta_efp19_may"	"may"	0.30866329878164	0.335418292211422
+"delta_efp21_april"	"406"	21	"BW_efp"	"red"	"F3"	"R4"	"TGCGAGA"	"TTGACCAG"	"delta_efp"	"XXPX"	"delta_efp21_april"	"april"	0.210740568845265	0.291568094905548
+"delta_efp21_may"	"406"	21	"BW_efp"	"red"	"F3"	"R4"	"TGCGAGA"	"TTGACCAG"	"delta_efp"	"XXPX"	"delta_efp21_may"	"may"	0.214201325947153	0.290646764321641
+"delta_efp22_april"	"406"	22	"BW_efp"	"white"	"F4"	"R2"	"GACATCCA"	"CGCTCA"	"delta_efp"	"XXXP"	"delta_efp22_april"	"april"	0.361870529072691	0.0736518332144534
+"delta_efp22_may"	"406"	22	"BW_efp"	"white"	"F4"	"R2"	"GACATCCA"	"CGCTCA"	"delta_efp"	"XXXP"	"delta_efp22_may"	"may"	0.359421855931643	0.0644133662311646
+"delta_efp24_april"	"406"	24	"BW_efp"	"red"	"F1"	"R3"	"TCAT"	"GCTAACA"	"delta_efp"	"XXXP"	"delta_efp24_april"	"april"	0.0692262286122609	-0.346726297769398
+"delta_efp24_may"	"406"	24	"BW_efp"	"red"	"F1"	"R3"	"TCAT"	"GCTAACA"	"delta_efp"	"XXXP"	"delta_efp24_may"	"may"	0.0729017713054079	-0.340654012343051
+"delta_efp7_april"	"404"	7	"BW_efp"	"white"	"F3"	"R4"	"TGCGAGA"	"TTGACCAG"	"delta_efp"	"XPPX"	"delta_efp7_april"	"april"	-0.397067819986027	0.0533164645806622
+"delta_efp7_may"	"404"	7	"BW_efp"	"white"	"F3"	"R4"	"TGCGAGA"	"TTGACCAG"	"delta_efp"	"XPPX"	"delta_efp7_may"	"may"	-0.400440135859016	0.0512565519580962
+"delta_efp9_april"	"404"	9	"BW_efp"	"red"	"F2"	"R4"	"AAGTGA"	"TTGACCAG"	"delta_efp"	"XPPX"	"delta_efp9_april"	"april"	-0.382369620635905	0.0499399165365563
+"delta_efp9_may"	"404"	9	"BW_efp"	"red"	"F2"	"R4"	"AAGTGA"	"TTGACCAG"	"delta_efp"	"XPPX"	"delta_efp9_may"	"may"	-0.38869516338661	0.0529555897170726

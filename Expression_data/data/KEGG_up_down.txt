@@ -1,0 +1,11 @@
+ClassID	Class	Description	Class_representation	pvalue	direction
+Oxidative phosphorylation 	KEGG	ko00190	60	0.027	downregulation
+Glycolysis/gluconeogenesis	KEGG	ko00010	55.55555556	0.035	downregulation
+Pyruvate metabolism	KEGG	ko00620	40.90909091	0.044	downregulation
+Tryptophan metabolism	KEGG	ko00380	37.5	0.031	downregulation
+Motor proteins	KEGG	ko04814	56.60377358	0.0026	upregulation
+Fatty acid biosynthesis	KEGG	ko00061	59.09090909	0.043	upregulation
+Quorum sensing	KEGG	ko02024	61.11111111	0.043	upregulation
+Cell adhesion	KEGG	ko04514	64.28571429	0.043	upregulation
+RNA polymerase	KEGG	ko03020	100	0	upregulation
+Biofilm formation	KEGG	ko02026	100	0	upregulation

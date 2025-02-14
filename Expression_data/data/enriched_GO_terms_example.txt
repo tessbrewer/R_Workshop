@@ -1,0 +1,9 @@
+ClassID	Class	Function	Class_representation	Pvalue	Domain
+GO:0016049	GO	cellular growth	27.4	4.10E-04	Biological Process
+GO:0009408	GO	response to heat	14.28571429	1.50E-05	Biological Process
+GO:0006935	GO	chemotaxis	66.66666667	5.70E-06	Biological Process
+GO:0016020	GO	membrane	28.57142857	5.00E-04	Cellular Component
+GO:0032993	GO	protein-DNA complex	100	0.00E+00	Cellular Component
+GO:0005524	GO	ATP binding	20.97297297	5.50E-05	Molecular Function
+GO:0016301	GO	kinase activity	33.33333333	4.50E-05	Molecular Function
+GO:0003677	GO	DNA binding	50	7.00E-04	Molecular Function

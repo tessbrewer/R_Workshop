@@ -1,0 +1,240 @@
+---
+title: "Basic expression data visualization"
+author: "Siobhan Cusack"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+## Structuring your expression data
+
+Whether you have gene or protein expression data, you'll need to get it formatted properly for ggplotting. As an example of how your data might be structured, here is a gene expression dataset that I [downloaded from GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE256167) (#GSE256167):
+
+```{r}
+setwd("C:/Users/G02.047/Documents/R_Workshop/Expression_data")
+df = read.delim("data/GSE256167_read_counts.csv", sep = ",", header = 1)
+df[1:10,]
+```
+
+The dataset shows the name of each transcript, the gene associated with it, the locus tag, and expression values for three replicates each of samples treated with ampicillin or ciprofloxacin. This dataframe broke one of the basic rules of not angering R: starting a column name with a number. It therefore added the letter X before each of the column names containing the actual datapoints. Because the timepoints are not actually relevant in this case (they vary only with antibiotic), we will rename these columns to include only the name of the antibiotic and the replicate number. 
+
+```{r}
+colnames(df) = c("Name", "gene", "locus_tag", "ampicillin_rep1", "ampicillin_rep2", "ampicillin_rep3", "ciprofloxacin_rep1", "ciprofloxacin_rep2", "ciprofloxacin_rep3")
+df[1:10,]
+```
+
+And we don't currently need the "Name" or "locus_tag" fields so we can drop those:
+
+```{r}
+df = subset(df, select = -c(Name,locus_tag))
+df
+```
+
+And now we will use `tidyr` magic to combine columns 2 through 7 into three columns: one with the antibiotic name, one with the replicate number, and one with the expression value. To do this, we call the function `pivot_longer`, specifying the data (`data = df`), the columns to transform (`cols = 2:7`), the names of the columns that information currently in the headers should occupy in the output dataframe (`names_to = c("Treatment", "Replicate")`), the character used to divide the sections of the header (`names_sep = "_"`), and the name of the column that the actual expression values will be in (`values_to = "Expression"`).
+
+```{r}
+library(tidyr)
+
+d2 = pivot_longer(data = df, cols = 2:7, names_to = c("Treatment", "Replicate"), names_sep = "_", values_to = "Expression")
+d2[1:10,]
+```
+
+Now that we have a tidied dataframe, we can proceed with visualizing the data. 
+
+
+## Heatmaps
+
+In the previous section on basic graphing we covered ways to visualize gene expression for a few genes. But what if you have thousands? A heatmap is more suited to this task. Here, we will group the data on the x-axis by treatment group and replicate and on the y-axis by gene name, showing the expression value with variations in color. 
+
+```{r}
+library(ggplot2)
+
+ggplot(data = d2, aes(x = interaction(Treatment, Replicate), y = gene, fill = Expression)) +
+geom_tile() +
+theme_classic() +
+labs(x = "Treatment/replicate", y = "Gene")
+```
+
+There are many problems with this graph:
+- The x-axis labels are overlapping because they are not angled
+- The y-axis labels are overlapping because there are too many
+- The data points cannot be distinguished from each other at all
+
+The first two problems are more or less aesthetic, but the last one is not. To solve this, we will apply a log transformation to the expression values.
+
+```{r}
+ggplot(data = d2, aes(x = interaction(Treatment, Replicate), y = gene, fill = log10(Expression))) +
+geom_tile() +
+theme_classic() +
+labs(x = "Treatment/replicate", y = "Gene")
+```
+
+We'll graph it again, this time angling the x-axis labels and using the log-transformed values. 
+
+```{r}
+ggplot(data = d2, aes(x = interaction(Treatment, Replicate), y = gene, fill = log10(Expression))) +
+geom_tile() +
+theme_classic() +
+labs(x = "Treatment/replicate", y = "Gene") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1)) +
+theme(axis.text.y = element_blank())
+```
+
+Finally, we could use faceting to separate the antibiotics from each other to more clearly show differences between the treatment groups; here, we will remove the treatment/replicate interaction term as the x-axis variable and replace it with replicate to avoid having empty columns in each facet:
+
+```{r}
+ggplot(data = d2, aes(x = Replicate, y = gene, fill = log10(Expression))) +
+geom_tile() +
+theme_classic() +
+labs(x = "Treatment/replicate", y = "Gene") +
+theme(axis.text.x = element_text(angle = 50, hjust = 1)) +
+theme(axis.text.y = element_blank()) +
+facet_wrap(~Treatment)
+```
+
+
+In a later section we will discuss setting the order of variables on an axis. This is helpful if you want to, for example, make this graph prettier by showing the genes in order of expression in one of the samples. This type of graph is most useful for demonstrating overall patterns of differential expression, of which there are few in this dataset. For a more detailed view of expression patterns across conditions for specific genes, you would need to use a much smaller dataset so you could actually see the gene labels. 
+
+There are a lot of other things you might want to do with a heatmap in this context, like generating and displaying gene expression clusters, but unfortunately these are beyond the scope of this workshop. There are resources available that show you how to cluster your data and integrate them into heatmaps (like [this one](https://bioinformatics.ccr.cancer.gov/docs/data-visualization-with-r/Lesson5_intro_to_ggplot/)), but they may not be ggplot-based. 
+
+
+
+## Volcano plots
+
+If you have processed expression data and you wish to visualize differentially expressed genes or proteins, the most common way is with a volcano plot. One of our colleagues recently generated some gene expression data like this using stressed and control *E. coli* and generously donated some processed data. Please note that I have randomized the gene names and expression values to protect their identities, so these results probably don't make sense biologically as displayed here. First we'll look at the structure of the processed dataset. The expression values were calculated as the log2 fold change in the stressed compared to control sample; these values and the adjusted *p*-values are what we need. 
+
+```{r}
+setwd("C:/Users/G02.047/Documents/R_Workshop/Expression_data")
+rel = read.delim("data/relative_gene_expression.csv", sep = ",", header = 1)
+rel
+```
+
+
+Then we can use the function `EnhancedVolcano` from the `EnhancedVolcano` package to generate a volcano plot, specifying the input dataframe (`toptable = rel`), the name of the column containing the -log2(fold change) values (`x = log2FoldChange`), the name of the column containing the adjusted *p*-values (`y = "padj"`), and the column containing gene names (`lab = rel$Gene`). By default, this will color-code your genes by significance, with gray points corresponding to genes that are not significantly differentially expressed, green corresponding to genes with a fold change greater than the specified threshold (log2(fold change) = 1) but a high *p*-value, and red corresponding to genes with a large fold-change and a low *p*-value (*i.e.*, our genes of interest).
+
+```{r}
+library(EnhancedVolcano)
+EnhancedVolcano(toptable = rel, x = "log2FoldChange", y = "padj", lab = rel$Gene)
+```
+
+There are a lot of options for changing your EnhancedVolcano plot according to your needs; see their documentation [here](https://bioconductor.org/packages/devel/bioc/vignettes/EnhancedVolcano/inst/doc/EnhancedVolcano.html#advanced-features) to learn more. 
+
+
+
+
+## Functional enrichment
+
+Once you've identified genes that are significantly up- or down-regulated, you can use a variety of methods to assess functional enrichment. This is usually done for annotations such as Gene Ontology (GO) or Kyoto Encyclopedia of Genes and Genomes (KEGG) terms. I use the website [FUNAGE-Pro](http://funagepro.molgenrug.nl/) because it's very easy to use and automatically incorporates many functional annotation types, including GO, KEGG, PFAM, eggNOG, and others. I recently did this type of analysis with Bibakhya using data from control and stressed bacteria and I will show you how I generated some of the graphs that she ended up using. These are fictional data inspired by her dataset, so please don't bother trying to find biological meaning here. Below are significantly enriched GO terms among genes that were upregulated our imaginary bacteria in response to stress:
+
+```{r}
+setwd("C:/Users/G02.047/Documents/R_Workshop/Expression_data")
+go = read.delim("data/enriched_GO_terms_example.txt", sep = "\t", header = 1)
+go
+```
+
+Here, class representation indicates the percentage of genes in your group that have the indicated annotation out of the total number of genes in the organism that have that annotation. We'd like to visualize the class representation, the *p*-value, and the domain for each annotation. Thus, we have four variables: two continuous and two categorical. Starting with just the class representation for each function, we will display this as a bar chart:
+
+```{r}
+library(ggplot2)
+
+ggplot(data = go, aes(x = Class_representation, y = Function)) +
+geom_bar(stat = "identity") +
+theme_classic(base_size = 22) +
+labs(x = "Class representation (%)", y = "GO term")
+```
+
+To incorporate the domain information, we will color-code each bar by domain. 
+
+```{r}
+ggplot(data = go, aes(x = Class_representation, y = Function, fill = Domain)) +
+geom_bar(stat = "identity", color = "black") +
+theme_classic(base_size = 22) +
+labs(x = "Class representation (%)", y = "GO term")
+```
+
+Finally, to include the *p*-values, we will have the saturation of each bar correspond to this variable.
+
+```{r}
+ggplot(data = go, aes(x = Class_representation, y = Function, fill = Domain, alpha = Pvalue)) +
+geom_bar(stat = "identity", color = "black") +
+theme_classic(base_size = 22) +
+labs(x = "Class representation (%)", y = "GO term")
+```
+
+To tidy this up a little bit, we can group the GO terms by domain and by class representation:
+
+```{r}
+go2 = go[with(go, order(Domain, Class_representation)), ]
+go$Function = factor(go$Function, levels = go2$Function)
+ggplot(data = go, aes(x = Class_representation, y = Function, fill = Domain, alpha = Pvalue)) +
+geom_bar(stat = "identity", color = "black") +
+theme_classic(base_size = 22) +
+labs(x = "Class representation (%)", y = "GO term")
+```
+
+For the same imaginary bacteria, let's say we also have KEGG terms that are significantly upregulated and downregulated during stress:
+
+```{r}
+setwd("C:/Users/G02.047/Documents/R_Workshop/Expression_data")
+kegg = read.delim("data/KEGG_up_down.txt", sep = "\t", header = 1)
+kegg
+```
+
+A nice way to display these would be to make a bar chart with the Class ID on the y-axis, class representation on the x-axis, and the direction of differential regulation indicated by the color. 
+
+```{r}
+ggplot(data = kegg, aes(x = Class_representation, y = ClassID, fill = direction)) +
+geom_bar(stat = "identity", color = "black") +
+theme_classic(base_size = 22) +
+labs(x = "Class representation (%)", y = "KEGG term")
+```
+
+To enhance the visual difference between terms enriched among upregulated and downregulated genes, we could change the class representation values of the terms enriched in downregulated genes to be negative:
+
+```{r}
+kegg[1:4, "Class_representation"] = -kegg[1:4, "Class_representation"]
+
+ggplot(data = kegg, aes(x = Class_representation, y = ClassID, fill = direction)) +
+geom_bar(stat = "identity", color = "black") +
+theme_classic(base_size = 22) +
+labs(x = "Class representation (%)", y = "KEGG term")
+```
+
+A couple of other things to make this graph look nicer: 
+- make the x-axis the same size on the upregulated and downregulated sides (`xlim(-100, 100)`)
+- adjust the transparency to represent the *p*-values (`alpha = pvalue`)
+- add a vertical line at x = 0 (`geom_vline(xintercept = 0, linetype = 1, color = "black", linewidth = 0.75)`)
+
+
+
+```{r}
+ggplot(data = kegg, aes(x = Class_representation, y = ClassID, fill = direction, alpha = pvalue)) +
+geom_bar(stat = "identity", color = "black", linewidth = 0.75) +
+theme_classic(base_size = 22) +
+labs(x = "Class representation (%)", y = "KEGG term") +
+xlim(-100, 100) +
+geom_vline(xintercept = 0, linetype = 1, color = "black", linewidth = 0.75) 
+```
+
+Lastly, Bibakhya asked if I could add a black border (replace `theme_classic` with `theme_bw`) and remove all of the tick marks from both axes for a cleaner look (the lines of code beginning with `theme(panel.grid.major` shown at the bottom here):
+```{r}
+ggplot(data = kegg, aes(x = Class_representation, y = ClassID, fill = direction, alpha = pvalue)) +
+geom_bar(stat = "identity", color = "black", linewidth = 0.75) +
+theme_bw(base_size = 22) +
+labs(x = "Class representation (%)", y = "KEGG term") +
+xlim(-100, 100) +
+geom_vline(xintercept = 0, linetype = 1, color = "black", linewidth = 0.75) +
+theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(colour = "black", size=2),
+         axis.ticks.y=element_blank(),
+         axis.ticks.x=element_blank())
+```
+
+These are just a few ways you might want to display data from expression analyses. The internet is a great source of inspiration if you're looking for other ways to display related data.
+
+
+Several people asked me about how to do a principal component analysis in R using their expression data. This is beyond the scope of this tutorial, but there are instructions online (e.g., [here](https://www.datacamp.com/tutorial/pca-analysis-r)), and Tess and I can help if you have specific questions. 
