@@ -9,7 +9,8 @@ The workshop consists of five sections in the following order:
   * Expression data visualization (tutorial at [Expression_data/expression_data.html](https://github.com/tessbrewer/R_Workshop/blob/main/Expression_data/expression_data.html))
   * General ggplot2 tips and tricks (tutorial at [Basic_graphing/making_graphs_prettier.html](https://github.com/tessbrewer/R_Workshop/blob/main/Basic_graphing/making_graphs_prettier.html))
 
-To look at any of these tutorials, click the link above, then download it by clicking this button on the top right of the page:
+To look at any of these tutorials, click the link above and download it by clicking this button on the top right of the page:
+
 ![img](tutorial_download.jpg) 
 
 then double-click on the downloaded file.
